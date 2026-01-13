@@ -1,35 +1,35 @@
 # ---------------------------------------
-# Stage 1: Builder (Compilación)
+# Stage 1: Builder (Velocidad con UV)
 # ---------------------------------------
 FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# 1. Instalar 'uv' (El instalador más rápido del mundo)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-# Copiar dependencias
+# 2. Copiar dependencias
 COPY requirements.txt .
 
-# Crear virtual environment y compilar wheels
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir -r requirements.txt
+# 3. Crear entorno virtual e instalar dependencias usando uv
+# Esto tarda segundos en lugar de minutos
+ENV VIRTUAL_ENV=/opt/venv
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN uv pip install -r requirements.txt
 
 # ---------------------------------------
-# Stage 2: Runner (Ejecución Ligera)
+# Stage 2: Runner (Ligero)
 # ---------------------------------------
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copiar el entorno virtual desde el Stage 1
+# Copiar el entorno virtual listo desde el Stage 1
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Variables de entorno críticas
+# Variables de entorno
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
@@ -37,10 +37,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Copiar el código fuente
 COPY . .
 
-# Exponer el puerto de Streamlit
+# Exponer puerto
 EXPOSE 8501
 
-# Healthcheck para saber si la app está viva
+# Healthcheck
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
 # Comando de arranque
