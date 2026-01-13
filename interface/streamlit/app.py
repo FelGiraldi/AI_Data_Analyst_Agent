@@ -27,7 +27,7 @@ st.set_page_config(
 )
 load_dotenv()
 
-# --- CSS ENTERPRISE ---
+# --- CSS  ---
 st.markdown("""
 <style>
     /* Global Font */
