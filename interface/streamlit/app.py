@@ -27,205 +27,200 @@ st.set_page_config(
 )
 load_dotenv()
 
-# --- CSS ---
+# --- CSS ENTERPRISE ---
 st.markdown("""
 <style>
-    /* 1. FUENTES Y FONDO GLOBAL */
+    /* Global Font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
-    }
+    .stApp { background-color: #0e1117; }
     
-    .stApp {
-        background-color: #0e1117;
-    }
+    /* Header & Sidebar */
+    header[data-testid="stHeader"] { background-color: transparent; z-index: 1; }
+    section[data-testid="stSidebar"] { background-color: #161b22; border-right: 1px solid #30363d; }
     
-    /* 2. HEADER Y SIDEBAR */
-    header[data-testid="stHeader"] {
-        background-color: transparent;
-        z-index: 1;
-    }
-    
-    section[data-testid="stSidebar"] {
-        background-color: #161b22;
-        border-right: 1px solid #30363d;
-    }
-    
-    /* 3. TARJETAS DE MÉTRICAS (KPIs) */
+    /* Métricas */
     div[data-testid="stMetric"] {
         background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
         border: 1px solid #374151;
         border-radius: 12px;
         padding: 15px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s;
     }
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: #3b82f6;
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] { gap: 24px; }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: transparent;
+        border-radius: 4px 4px 0px 0px;
+        gap: 1px;
+        padding-top: 10px;
+        padding-bottom: 10px;
     }
-
-    /* 4. CHAT BUBBLES */
-    .stChatMessage[data-testid="stChatMessage"]:nth-child(odd) {
-        background-color: #151b23; 
-        border: 1px solid #30363d;
-        border-radius: 12px;
-    }
-    .stChatMessage[data-testid="stChatMessage"]:nth-child(even) {
-        background-color: #1c2a3a;
-        border: 1px solid #1f6feb;
-        border-radius: 12px;
-    }
-
-    /* 5. BOTONES */
+    
+    /* Botones */
     div.stButton > button[kind="primary"] {
         background-color: #238636;
         color: white;
         border-radius: 6px;
         font-weight: 600;
     }
-    
-    /* Botón Nueva Conversación (Rojo) */
     div.stButton > button:contains("Nueva Conversación") {
-        border-color: #da3633;
-        color: #f85149;
+        border-color: #da3633; color: #f85149;
     }
-    div.stButton > button:contains("Nueva Conversación"):hover {
-        background-color: #b62324;
-        color: white;
-    }
-
-    /* Botones de sugerencias */
-    div[data-testid="stSidebar"] div.stButton > button {
-        background-color: #21262d;
-        color: #c9d1d9;
-        border: 1px solid #30363d;
-        text-align: left;
-    }
-    div[data-testid="stSidebar"] div.stButton > button:hover {
-        border-color: #8b949e;
-        color: white;
-    }
-
-    /* 6. OTROS */
+    
+    /* Chat Bubbles */
+    .stChatMessage { padding: 1rem; border-radius: 12px; margin-bottom: 0.5rem; }
+    .stChatMessage[data-testid="stChatMessage"]:nth-child(odd) { background-color: #151b23; border: 1px solid #30363d; }
+    .stChatMessage[data-testid="stChatMessage"]:nth-child(even) { background-color: #1c2a3a; border: 1px solid #1f6feb; }
+    
+    /* Elementos Ocultos */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     div[data-testid="stDecoration"] {visibility: hidden;}
-    div[data-testid="stStatusWidget"] {
-        background-color: #0d1117;
-        border: 1px solid #30363d;
-    }
-    .stCodeBlock {
-        background-color: #0d1117 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # --- 3. SINGLETONS ---
 @st.cache_resource
-def get_infra():
-    return DuckDBAdapter(db_path=":memory:")
+def get_infra(): return DuckDBAdapter(db_path=":memory:")
 
 @st.cache_resource
-def get_agent(_db):
-    return build_analyst_graph(_db)
+def get_agent(_db): return build_analyst_graph(_db)
 
 @st.cache_resource
-def get_nodes(_db):
-    return AgentNodes(_db)
+def get_nodes(_db): return AgentNodes(_db)
 
-# --- 4. RENDERIZADO VISUAL ---
+# --- 4. LÓGICA VISUAL ---
 
-def render_chart(df, config):
+def render_chart(df, config, key_suffix=""):
+    """Genera gráficos Plotly."""
     try:
         chart_type = config.get("chart_type")
         title = config.get("title", "Visualización")
         cols = df.columns.tolist()
-        
-        x_col = config.get("x_column")
-        y_col = config.get("y_column")
+        x_col, y_col = config.get("x_column"), config.get("y_column")
         
         if x_col not in cols: x_col = cols[0]
         if y_col not in cols and len(cols) > 1: y_col = cols[1]
 
-        common_layout = dict(template="plotly_dark", height=500)
+        common = dict(template="plotly_dark", height=450)
 
-        if chart_type == "bar":
-            fig = px.bar(df, x=x_col, y=y_col, title=title, color=x_col, **common_layout)
-        elif chart_type == "line":
-            fig = px.line(df, x=x_col, y=y_col, title=title, markers=True, **common_layout)
-        elif chart_type == "scatter":
-            fig = px.scatter(df, x=x_col, y=y_col, title=title, size=y_col if pd.api.types.is_numeric_dtype(df[y_col]) else None, **common_layout)
-        elif chart_type == "pie":
-            fig = px.pie(df, names=x_col, values=y_col, title=title, template="plotly_dark")
-        elif chart_type == "histogram":
-            fig = px.histogram(df, x=x_col, title=title, **common_layout)
+        if chart_type == "bar": fig = px.bar(df, x=x_col, y=y_col, title=title, color=x_col, **common)
+        elif chart_type == "line": fig = px.line(df, x=x_col, y=y_col, title=title, markers=True, **common)
+        elif chart_type == "scatter": fig = px.scatter(df, x=x_col, y=y_col, title=title, size=y_col if pd.api.types.is_numeric_dtype(df[y_col]) else None, **common)
+        elif chart_type == "pie": fig = px.pie(df, names=x_col, values=y_col, title=title, template="plotly_dark")
+        elif chart_type == "histogram": 
+            fig = px.histogram(df, x=x_col, title=title, **common)
             fig.update_layout(bargap=0.1)
         elif chart_type == "box":
-            if pd.api.types.is_numeric_dtype(df[x_col]):
-                fig = px.box(df, y=x_col, title=title, **common_layout)
-            else:
-                fig = px.box(df, x=x_col, y=y_col, title=title, **common_layout)
-        else:
-            return 
+            fig = px.box(df, y=x_col, title=title, **common) if pd.api.types.is_numeric_dtype(df[x_col]) else px.box(df, x=x_col, y=y_col, title=title, **common)
+        else: return
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"chart_{uuid.uuid4()}_{key_suffix}")
+
     except Exception as e:
         st.warning(f"⚠️ Error gráfico: {str(e)}")
 
-def render_message(msg, msg_index):
-    role = msg["role"]
-    content = msg.get("content", "")
-    viz_config = msg.get("viz_config", {})
-    raw_data = msg.get("data", [])
+def render_message(msg, index):
+    """Renderiza un mensaje del chat."""
+    role, content = msg["role"], msg.get("content", "")
+    viz_config, raw_data = msg.get("viz_config", {}), msg.get("data", [])
 
     with st.chat_message(role):
-        if content:
-            st.markdown(content)
+        if content: st.markdown(content)
         
-        if raw_data is not None and isinstance(raw_data, list) and len(raw_data) > 0:
+        if raw_data and isinstance(raw_data, list) and len(raw_data) > 0:
             df_viz = pd.DataFrame(raw_data)
             
             # A. KPIs
             if len(df_viz) == 1:
                 st.markdown("---")
-                cols_ui = st.columns(min(len(df_viz.columns), 4))
-                for idx, col_name in enumerate(df_viz.columns[:4]):
-                    val = df_viz.iloc[0][col_name]
-                    display_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
-                    cols_ui[idx].metric(label=col_name.replace("_", " ").title(), value=display_val)
+                cols = st.columns(min(len(df_viz.columns), 4))
+                for idx, col in enumerate(df_viz.columns[:4]):
+                    val = df_viz.iloc[0][col]
+                    d_val = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val)
+                    cols[idx].metric(col.replace("_", " ").title(), d_val)
             
-            # B. Botón Descarga
+            # B. Acciones (Descargar y Anclar)
             if len(df_viz) > 0:
+                c1, c2 = st.columns([1, 1])
                 csv = df_viz.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="⬇️ Descargar Resultados",
-                    data=csv,
-                    file_name=f"analisis_export_{msg_index}.csv",
-                    mime="text/csv",
-                    key=f"dl_{msg_index}_{uuid.uuid4()}"
-                )
-
-            # C. Gráficos
-            if viz_config and viz_config.get("chart_type") != "none":
-                is_stats_chart = viz_config.get("chart_type") in ["histogram", "box"]
-                is_small_data = len(df_viz) < 5
+                c1.download_button("⬇️ CSV", csv, f"data_{index}.csv", "text/csv", key=f"dl_{index}")
                 
-                if is_stats_chart and is_small_data:
-                    st.caption("ℹ️ Datos insuficientes para distribución.")
-                else:
-                    st.divider()
-                    render_chart(df_viz, viz_config)
+                # BOTÓN DE PINNING
+                if viz_config.get("chart_type") != "none":
+                    if c2.button("📌 Anclar", key=f"pin_{index}"):
+                        # Guardar en dashboard
+                        if "pinned_charts" not in st.session_state:
+                            st.session_state["pinned_charts"] = []
+                        st.session_state["pinned_charts"].append({
+                            "config": viz_config,
+                            "data": raw_data,
+                            "id": str(uuid.uuid4())
+                        })
+                        st.toast("✅ Gráfico anclado al Dashboard", icon="📌")
 
-# --- 5. MAIN APP ---
-def main():
-    st.title("📊 AI Analytics Dashboard")
+            # C. Gráfico
+            if viz_config.get("chart_type") != "none":
+                is_stats = viz_config.get("chart_type") in ["histogram", "box"]
+                if is_stats and len(df_viz) < 5: st.caption("ℹ️ Datos insuficientes para distribución.")
+                else: 
+                    st.divider()
+                    render_chart(df_viz, viz_config, key_suffix=f"msg_{index}")
+
+def render_dashboard():
+    """Renderiza la pestaña de Dashboard."""
+    st.header("📌 Executive Dashboard")
     
+    if "pinned_charts" not in st.session_state or not st.session_state["pinned_charts"]:
+        st.info("👋 Tu dashboard está vacío. Ve al chat y presiona '📌 Anclar' en cualquier gráfico para agregarlo aquí.")
+        return
+
+    # Botón borrar todo
+    if st.button("🗑️ Limpiar Dashboard"):
+        st.session_state["pinned_charts"] = []
+        st.rerun()
+
+    st.markdown("---")
+    
+    # Grid Layout (2 columnas)
+    charts = st.session_state["pinned_charts"]
+    
+    # Iterar en pasos de 2 para crear filas
+    for i in range(0, len(charts), 2):
+        c1, c2 = st.columns(2)
+        
+        # Gráfico 1
+        with c1:
+            item = charts[i]
+            with st.container(border=True):
+                df = pd.DataFrame(item["data"])
+                render_chart(df, item["config"], key_suffix=f"dash_{item['id']}")
+                if st.button("❌ Quitar", key=f"del_{item['id']}"):
+                    st.session_state["pinned_charts"].pop(i)
+                    st.rerun()
+        
+        # Gráfico 2 (si existe)
+        if i + 1 < len(charts):
+            with c2:
+                item = charts[i+1]
+                with st.container(border=True):
+                    df = pd.DataFrame(item["data"])
+                    render_chart(df, item["config"], key_suffix=f"dash_{item['id']}")
+                    if st.button("❌ Quitar", key=f"del_{item['id']}"):
+                        st.session_state["pinned_charts"].pop(i+1)
+                        st.rerun()
+
+# --- 5. MAIN ---
+def main():
     # --- SIDEBAR ---
     with st.sidebar:
-        st.header("📂 Origen de Datos")
-        uploaded_file = st.file_uploader("Sube CSV o Excel", type=["csv", "xlsx"])
+        st.title("🤖 AI Analyst")
+        uploaded_file = st.file_uploader("Data Source", type=["csv", "xlsx"])
         
         if uploaded_file:
             ext = os.path.splitext(uploaded_file.name)[1]
@@ -233,132 +228,109 @@ def main():
             with open(temp_path, "wb") as f: f.write(uploaded_file.getbuffer())
             
             db = get_infra()
-            if st.button("🚀 Ingestar y Analizar", type="primary"):
+            if st.button("🚀 Ingestar", type="primary", use_container_width=True):
                 with st.spinner("Procesando..."):
                     try:
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                         schema = loop.run_until_complete(db.load_file(temp_path, "dataset_usuario"))
-                        
                         st.session_state["current_schema"] = schema.get_context_for_llm()
-                        st.session_state["chat_history"] = []
                         
-                        # Generar Sugerencias
                         nodes = get_nodes(db)
                         suggestions = loop.run_until_complete(nodes.generate_suggestions(schema.get_context_for_llm()))
                         st.session_state["suggestions"] = suggestions
                         
-                        st.success("✅ Datos Indexados")
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-            
+                        st.success("✅ Indexado")
+                    except Exception as e: st.error(f"Error: {e}")
             if os.path.exists(temp_path): os.remove(temp_path)
 
-        # --- BOTÓN NUEVA CONVERSACIÓN  ---
         if "current_schema" in st.session_state:
             st.divider()
-            if st.button("🗑️ Nueva Conversación", use_container_width=True):
+            if st.button("🗑️ Reset Chat", use_container_width=True):
                 st.session_state["chat_history"] = []
                 st.session_state["last_sql_memory"] = None
-                st.session_state["triggered_question"] = None
                 st.rerun()
 
-        # Sugerencias
         if "suggestions" in st.session_state:
             st.divider()
-            st.subheader("💡 Sugerencias")
             st.caption(st.session_state["suggestions"].get("summary", ""))
-            
-            st.markdown("**Prueba analizando:**")
             for q in st.session_state["suggestions"].get("questions", []):
                 if st.button(f"👉 {q}"):
                     st.session_state["triggered_question"] = q
                     st.rerun()
 
-    # --- HISTORIAL ---
-    if "chat_history" not in st.session_state:
-        st.session_state.chat_history = []
+    # --- TABS PRINCIPALES ---
+    tab_chat, tab_dash = st.tabs(["💬 Chat & Analysis", "📌 Dashboard"])
 
-    for i, msg in enumerate(st.session_state.chat_history):
-        render_message(msg, i)
+    # --- TAB 1: CHAT ---
+    with tab_chat:
+        if "chat_history" not in st.session_state: st.session_state.chat_history = []
+        for i, msg in enumerate(st.session_state.chat_history): render_message(msg, i)
 
-    # --- INPUT ---
-    manual_input = st.chat_input("Escribe tu pregunta...")
-    triggered_input = st.session_state.pop("triggered_question", None)
-    user_input = triggered_input if triggered_input else manual_input
+        manual_input = st.chat_input("Pregunta sobre tus datos...")
+        triggered_input = st.session_state.pop("triggered_question", None)
+        user_input = triggered_input if triggered_input else manual_input
 
-    if user_input:
-        if "current_schema" not in st.session_state:
-            st.warning("⚠️ Sube un archivo primero.")
-            return
+        if user_input:
+            if "current_schema" not in st.session_state:
+                st.warning("⚠️ Sube un archivo primero.")
+            else:
+                user_msg = {"role": "user", "content": user_input}
+                st.session_state.chat_history.append(user_msg)
+                render_message(user_msg, len(st.session_state.chat_history)-1)
 
-        # 1. User Msg
-        user_msg = {"role": "user", "content": user_input}
-        st.session_state.chat_history.append(user_msg)
-        render_message(user_msg, len(st.session_state.chat_history)-1)
-
-        # 2. Assistant Msg
-        with st.chat_message("assistant"):
-            result = None
-
-            with st.status("🧠 Analizando datos...", expanded=True) as status:
-                
-                lc_messages = []
-                for m in st.session_state.chat_history:
-                    if m["role"] == "user": lc_messages.append(HumanMessage(content=m["content"]))
-                    else: lc_messages.append(AIMessage(content=m.get("content", "")))
-
-                db = get_infra()
-                agent = get_agent(db)
-                
-                state = {
-                    "messages": lc_messages, 
-                    "schema_info": st.session_state["current_schema"],
-                    "last_successful_sql": st.session_state.get("last_sql_memory"),
-                    "retry_count": 0
-                }
-
-                final_res = {"role": "assistant", "content": "", "viz_config": {}, "data": []}
-
-                async def run_workflow():
-                    async for event in agent.astream(state):
-                        for node, update in event.items():
-                            if "sql_query" in update:
-                                status.write(f"🔧 Generando SQL...")
-                                status.code(update['sql_query'], language="sql")
-                            
-                            if "error" in update and update["error"]:
-                                status.warning(f"⚠️ Corrigiendo consulta...")
-                            
-                            if "execution_result" in update:
-                                status.write("✅ Datos obtenidos.")
-                                final_res["data"] = update["execution_result"]
-                                if "last_successful_sql" in update:
-                                    st.session_state["last_sql_memory"] = update["last_successful_sql"]
-
-                            if "viz_config" in update:
-                                status.write("🎨 Diseñando gráfico...")
-                                final_res["viz_config"] = update["viz_config"]
-                            
-                            if "messages" in update:
-                                final_res["content"] = update["messages"][-1].content
-                    return final_res
-
-                try:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    result = loop.run_until_complete(run_workflow())
-                    
-                    status.update(label="✅ Completado", state="complete", expanded=False)
-                
-                except Exception as e:
-                    status.update(label="❌ Error", state="error")
-                    st.error(f"Error inesperado: {str(e)}")
+                with st.chat_message("assistant"):
                     result = None
+                    with st.status("🧠 Analizando...", expanded=True) as status:
+                        lc_messages = []
+                        for m in st.session_state.chat_history:
+                            if m["role"] == "user": lc_messages.append(HumanMessage(content=m["content"]))
+                            else: lc_messages.append(AIMessage(content=m.get("content", "")))
 
-            if result:
-                st.session_state.chat_history.append(result)
-                render_message(result, len(st.session_state.chat_history)-1)
+                        db = get_infra()
+                        agent = get_agent(db)
+                        state = {
+                            "messages": lc_messages, 
+                            "schema_info": st.session_state["current_schema"],
+                            "last_successful_sql": st.session_state.get("last_sql_memory")
+                        }
+                        
+                        final_res = {"role": "assistant", "content": "", "viz_config": {}, "data": []}
+
+                        async def run():
+                            async for event in agent.astream(state):
+                                for node, update in event.items():
+                                    if "sql_query" in update: 
+                                        status.write("🔧 SQL generado...")
+                                        status.code(update["sql_query"], language="sql")
+                                    if "error" in update and update["error"]: status.warning("⚠️ Corrigiendo...")
+                                    if "execution_result" in update:
+                                        status.write("✅ Datos obtenidos")
+                                        final_res["data"] = update["execution_result"]
+                                        if "last_successful_sql" in update:
+                                            st.session_state["last_sql_memory"] = update["last_successful_sql"]
+                                    if "viz_config" in update:
+                                        status.write("🎨 Generando gráfico...")
+                                        final_res["viz_config"] = update["viz_config"]
+                                    if "messages" in update: final_res["content"] = update["messages"][-1].content
+                            return final_res
+
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            result = loop.run_until_complete(run())
+                            status.update(label="✅ Listo", state="complete", expanded=False)
+                        except Exception as e:
+                            status.update(label="❌ Error", state="error")
+                            st.error(f"Error: {e}")
+
+                    if result:
+                        st.session_state.chat_history.append(result)
+                        render_message(result, len(st.session_state.chat_history)-1)
+
+    # --- TAB 2: DASHBOARD ---
+    with tab_dash:
+        render_dashboard()
 
 if __name__ == "__main__":
     main()
