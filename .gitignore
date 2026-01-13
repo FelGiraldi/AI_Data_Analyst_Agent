@@ -1,0 +1,51 @@
+# --- 1. Seguridad y Secretos (CRÍTICO) ---
+.env
+.env.*
+.streamlit/secrets.toml
+**/*_secret.json
+
+# --- 2. Entornos Virtuales y Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- 3. Datos y Bases de Datos (Local) ---
+# Ignorar la base de datos DuckDB local para no subir binarios pesados
+*.duckdb
+*.db
+
+# Ignorar archivos temporales de subida (Excel/CSV)
+temp_*
+*.csv
+*.xlsx
+*.xls
+data/
+
+# --- 4. Streamlit ---
+# Ignorar cache interna de Streamlit
+.streamlit/
+
+# --- 5. Herramientas de Desarrollo e IDEs ---
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# --- 6. Testing y Calidad de Código ---
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+test-results/
+
+# --- 7. Docker y Logs ---
+docker-compose.override.yml
+*.log
+
+# --- 8. Package Managers ---
+# uv cache (si existiera localmente)
+.uv/
