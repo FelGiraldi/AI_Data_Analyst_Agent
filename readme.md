@@ -23,8 +23,6 @@
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Métricas de Performance](#métricas-de-performance)
-- [Roadmap](#roadmap)
-- [Contribuir](#contribuir)
 - [Support](#support)
 
 ---
